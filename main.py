@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from services.integration_service import NotionS3Integration
+from integrations.notion_s3_integration import NotionS3Integration
 from config.settings import Config
 import logging
 

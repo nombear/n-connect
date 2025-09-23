@@ -131,3 +131,32 @@ class S3Service:
         """Create a backup filename with timestamp"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         return f"notion_backups/{page_id}_{timestamp}_{original_name}"
+
+    def get_files_grouped_by_subfolder(self, prefix=''):
+        """Get files grouped by their immediate subfolder"""
+        try:
+            files = self.list_files(prefix)
+            folders = {}
+
+            for file in files:
+                # Remove the prefix to get relative path
+                relative_path = file['key'][len(prefix):] if file['key'].startswith(prefix) else file['key']
+
+                # Skip files directly in the prefix directory (no subfolder)
+                if '/' not in relative_path.strip('/'):
+                    continue
+
+                # Get the first folder in the path
+                folder_name = relative_path.strip('/').split('/')[0]
+                folder_path = f"{prefix.rstrip('/')}/{folder_name}" if prefix else folder_name
+
+                if folder_path not in folders:
+                    folders[folder_path] = []
+
+                folders[folder_path].append(file)
+
+            return folders
+
+        except ClientError as e:
+            logger.error(f"Error grouping files by subfolder: {e}")
+            raise

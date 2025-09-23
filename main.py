@@ -29,6 +29,7 @@ def index():
             'backup_summary': '/backups/summary',
             'embed_s3_document': '/embed/s3/page/<page_id>',
             'create_page_with_s3': '/create/page/s3',
+            'create_pages_from_folders': '/create/pages/folders',
             'list_s3_documents': '/s3/documents'
         }
     })
@@ -229,6 +230,39 @@ def list_s3_documents():
         })
     except Exception as e:
         logger.error(f"Error listing S3 documents: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/create/pages/folders', methods=['POST'])
+def create_pages_from_s3_folders():
+    if not integration:
+        return jsonify({'error': 'Service not properly configured'}), 500
+
+    data = request.get_json()
+    if not data or 'folder_prefix' not in data:
+        return jsonify({'error': 'folder_prefix is required'}), 400
+
+    folder_prefix = data['folder_prefix']
+    base_title_prefix = data.get('base_title_prefix', '')
+    properties = data.get('properties')
+    expiration = data.get('expiration', 3600)
+
+    try:
+        result = integration.create_notion_pages_from_s3_folders(
+            folder_prefix=folder_prefix,
+            base_title_prefix=base_title_prefix,
+            properties=properties,
+            expiration=expiration
+        )
+        return jsonify({
+            'success': True,
+            'message': f'Created {result["total_folders"]} pages from {result["total_files"]} files',
+            'data': result
+        })
+    except Exception as e:
+        logger.error(f"Error creating pages from folders: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

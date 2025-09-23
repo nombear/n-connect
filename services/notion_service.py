@@ -181,3 +181,43 @@ class NotionService:
         except Exception as e:
             logger.error(f"Error creating page with S3 links: {e}")
             raise
+
+    def search_pages_by_title(self, title):
+        """Search for existing pages by title in the current page's children"""
+        try:
+            # Get all child pages
+            response = self.client.blocks.children.list(block_id=self.page_id)
+            pages = []
+
+            for block in response.get('results', []):
+                if block['type'] == 'child_page':
+                    page_id = block['id']
+                    page_details = self.client.pages.retrieve(page_id=page_id)
+
+                    # Extract title from page properties
+                    page_title = ""
+                    if 'properties' in page_details:
+                        for prop_name, prop_data in page_details['properties'].items():
+                            if prop_data['type'] == 'title':
+                                title_parts = prop_data['title']
+                                if title_parts:
+                                    page_title = title_parts[0]['text']['content']
+                                break
+
+                    if page_title.lower() == title.lower():
+                        pages.append(page_details)
+
+            return pages
+
+        except Exception as e:
+            logger.error(f"Error searching for pages by title: {e}")
+            raise
+
+    def page_exists(self, title):
+        """Check if a page with the given title already exists"""
+        try:
+            existing_pages = self.search_pages_by_title(title)
+            return len(existing_pages) > 0
+        except Exception as e:
+            logger.error(f"Error checking if page exists: {e}")
+            raise

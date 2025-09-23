@@ -268,3 +268,70 @@ class NotionS3Integration:
         except Exception as e:
             logger.error(f"Error listing S3 documents: {e}")
             raise
+
+    def create_notion_pages_from_s3_folders(self, folder_prefix='', base_title_prefix='', properties=None, expiration=3600):
+        """Create separate Notion pages for each subfolder in the specified S3 prefix"""
+        try:
+            # Get files grouped by subfolder
+            folders = self.s3_service.get_files_grouped_by_subfolder(folder_prefix)
+
+            if not folders:
+                logger.warning(f"No subfolders found in prefix: {folder_prefix}")
+                return {
+                    'created_pages': [],
+                    'total_folders': 0,
+                    'total_files': 0
+                }
+
+            created_pages = []
+            total_files = 0
+
+            for folder_path, files in folders.items():
+                # Generate page title from folder name
+                folder_name = folder_path.split('/')[-1]
+                page_title = f"{base_title_prefix}{folder_name}" if base_title_prefix else folder_name
+                if self.notion_service.page_exists(page_title):
+                    raise TypeError(f"Page {page_title} already exists")
+                # Prepare S3 links data for this folder
+                s3_links = []
+                for file in files:
+                    s3_key = file['key']
+
+                    # Generate presigned URL
+                    presigned_url = self.s3_service.generate_presigned_url(s3_key, expiration)
+
+                    # Get file metadata
+                    size_mb = round(file['size'] / (1024 * 1024), 2)
+                    description = f"File size: {size_mb} MB | Last modified: {file['last_modified'].strftime('%Y-%m-%d %H:%M:%S')}"
+
+                    s3_links.append({
+                        'url': presigned_url,
+                        'text': s3_key.split('/')[-1],
+                        'description': description
+                    })
+
+                # Create the Notion page with S3 links for this folder
+                page = self.notion_service.create_page_with_s3_links(page_title, s3_links, properties)
+
+                created_pages.append({
+                    'page': page,
+                    'folder_path': folder_path,
+                    'page_title': page_title,
+                    'file_count': len(files),
+                    's3_keys': [f['key'] for f in files]
+                })
+
+                total_files += len(files)
+                logger.info(f"Created page '{page_title}' with {len(files)} files from folder {folder_path}")
+
+            logger.info(f"Successfully created {len(created_pages)} pages from {len(folders)} folders with {total_files} total files")
+            return {
+                'created_pages': created_pages,
+                'total_folders': len(folders),
+                'total_files': total_files,
+                'expires_in': expiration
+            }
+
+        except Exception as e:
+            logger.error(f"Error creating Notion pages from S3 folders: {e}")
+            raise

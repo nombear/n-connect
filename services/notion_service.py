@@ -111,26 +111,25 @@ class NotionService:
         """Add an S3 document link to a Notion page"""
         try:
             # Create the link block
-            link_block = {
+            image_block = {
                 "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [
+                "type": "image",
+                "image": {
+                    "type": "external",
+                    "external": {
+                        "url" : s3_url
+                    },
+                    "caption" : [
                         {
-                            "type": "text",
-                            "text": {
-                                "content": link_text or "S3 Document",
-                                "link": {
-                                    "url": s3_url
-                                }
-                            }
+                            "type" : "text",
+                            "text": {"content": s3_url}
                         }
                     ]
                 }
             }
 
             # Add description if provided
-            blocks_to_add = [link_block]
+            blocks_to_add = [image_block]
             if description:
                 description_block = {
                     "object": "block",
